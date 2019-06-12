@@ -1,9 +1,13 @@
-lessons
+Good practices when working on projects
 ========================================================
 author: Hezi Buba
 date: 12/06/19
 autosize: true
 incremental: true
+
+```{r setup, cache = F}
+knitr::opts_chunk$set(error = TRUE)
+```
 
 A little backstory
 ========================================================
@@ -43,7 +47,7 @@ source("sdm_model_poly.R")
 source("combined_model_new.R")
 ```
 
-Some good Practices here, but... 
+Some good practices here
 ========================================================
 
 * The use of `source()` allows you to break down your project into logical segments.
@@ -54,6 +58,7 @@ Some good Practices here, but...
 
 * Results subfolder.
 
+However:
 
 * `rm(list = ls())`. DO NOT USE IT IN SCRIPTS! 
 
@@ -90,7 +95,6 @@ Eventually you will either:
 * Send your script to a collaborator
 * Work on multiple R sessions simultanously. 
 
-![]
 
 Writing your script with those scenerios in mind will minimize errors caused by depending on your current R session settings. From theory to practice:
 
@@ -236,7 +240,7 @@ Let's set two functions.
 f1 <- function() {
   result <- matrix(nrow = 0, ncol=100)
   for (i in seq_len(100)){
-    output <- matrix(1:1e6,ncol = 100)
+    output <- matrix(1:1e5,ncol = 100)
     result <- rbind(result, output) 
   }
   result1 <- as.data.frame(result) 
@@ -244,7 +248,7 @@ f1 <- function() {
 }
 f2 <- function() {
   list.of.result <- lapply(seq_len(100), function(i) 
-  as.data.frame(matrix(1:1e6,ncol = 100)))
+  as.data.frame(matrix(1:1e5,ncol = 100)))
 result2 <- do.call(what = dplyr::bind_rows,args = list.of.result)
 }
 
@@ -274,7 +278,7 @@ mysteryfunction <- function(matrix) {
 }
 ```
 
-What does this function does?
+What does this function do?
 
 
 While on the topic...
@@ -357,3 +361,54 @@ parallel::stopCluster(cluster)
 ```
 
 
+Some things to take into considerations:
+==============
+
+objects are not automatically exported to clusters!
+
+
+
+```{r echo=T}
+a <- c(1:8)
+f <- function(i) {return(i*2)}
+cluster <- parallel::makeCluster(8)
+doParallel::registerDoParallel(cluster)
+pbapply::pblapply(1:8,function(i) f(a[i]) ,cl = cluster)
+parallel::stopCluster(cluster)
+```
+
+Exporting Objects to your clusters
+==================
+
+```{r}
+a <- c(1:8)
+f <- function(i) {return(i*2)}
+cluster <- parallel::makeCluster(8)
+doParallel::registerDoParallel(cluster)
+parallel::clusterExport(cluster,c("a","f"))
+pbapply::pblapply(1:8,function(i) f(a[i]) ,cl = cluster)
+parallel::stopCluster(cluster)
+```
+
+This applies to packages as well.. I pass the library to each cluster call like so:
+
+```{r eval = F}
+#for example
+parallel::clusterCall(clusters, function() library(tidyverse))
+```
+
+
+Take home messages
+=====================================
+
+What's comfortable for you may not be as intuitive to your collaborators.
+<br/>
+<br/>
+<br/>
+What's comfortable for you _right now_ may not be as intuitive to _future you!_
+
+Make sure to adopt good practices early on, so you can easily work on other people's code and they can easily understand and work on your code.
+
+R is an evolving language - it is good to stay updated.
+
+Programming is a skill - with time and practice we all get better. 

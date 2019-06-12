@@ -1,9 +1,14 @@
-lessons
+Good practices when working on projects
 ========================================================
 author: Hezi Buba
 date: 12/06/19
 autosize: true
 incremental: true
+
+
+```r
+knitr::opts_chunk$set(error = TRUE)
+```
 
 A little backstory
 ========================================================
@@ -44,7 +49,7 @@ source("sdm_model_poly.R")
 source("combined_model_new.R")
 ```
 
-Some good Practices here, but... 
+Some good practices here
 ========================================================
 
 * The use of `source()` allows you to break down your project into logical segments.
@@ -55,6 +60,7 @@ Some good Practices here, but...
 
 * Results subfolder.
 
+However:
 
 * `rm(list = ls())`. DO NOT USE IT IN SCRIPTS! 
 
@@ -80,7 +86,7 @@ here()
 ```
 
 ```
-[1] "D:/My Documents/multiscriptgoodpracticres"
+[1] "C:/Users/eze36/Documents/multiscriptgoodpracticres"
 ```
 
 
@@ -104,7 +110,6 @@ Eventually you will either:
 * Send your script to a collaborator
 * Work on multiple R sessions simultanously. 
 
-![]
 
 Writing your script with those scenerios in mind will minimize errors caused by depending on your current R session settings. From theory to practice:
 
@@ -253,7 +258,7 @@ Let's set two functions.
 f1 <- function() {
   result <- matrix(nrow = 0, ncol=100)
   for (i in seq_len(100)){
-    output <- matrix(1:1e6,ncol = 100)
+    output <- matrix(1:1e5,ncol = 100)
     result <- rbind(result, output) 
   }
   result1 <- as.data.frame(result) 
@@ -261,7 +266,7 @@ f1 <- function() {
 }
 f2 <- function() {
   list.of.result <- lapply(seq_len(100), function(i) 
-  as.data.frame(matrix(1:1e6,ncol = 100)))
+  as.data.frame(matrix(1:1e5,ncol = 100)))
 result2 <- do.call(what = dplyr::bind_rows,args = list.of.result)
 }
 
@@ -272,8 +277,8 @@ bench::mark(f1(),f2())
 # A tibble: 2 x 6
   expression      min   median `itr/sec` mem_alloc `gc/sec`
   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-1 f1()          15.6s    15.6s    0.0641    20.3GB     2.24
-2 f2()          1.21s    1.21s    0.829     2.24GB     1.66
+1 f1()          2.18s    2.18s     0.459    2.03GB     13.8
+2 f2()       317.29ms 337.76ms     2.96   230.75MB     13.3
 ```
 
 apply ohana (also purrr::map)
@@ -305,7 +310,7 @@ mysteryfunction <- function(matrix) {
 }
 ```
 
-What does this function does?
+What does this function do?
 
 
 While on the topic...
@@ -330,8 +335,8 @@ bench::mark(colMeans(matrix),apply_colmeans(matrix))
 # A tibble: 2 x 6
   expression                  min   median `itr/sec` mem_alloc `gc/sec`
   <bch:expr>             <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-1 colMeans(matrix)        773.2us  818.1us    1210.     32.3KB     2.02
-2 apply_colmeans(matrix)   13.1ms   13.6ms      71.5    19.2MB     4.47
+1 colMeans(matrix)          803us  833.2us    1117.     32.3KB      0  
+2 apply_colmeans(matrix)     12ms   13.8ms      69.0    19.2MB     21.9
 ```
 
 `colMeans()` is much faster because it is a **vectorized** function. If you have the need for speed, read more about vectorization [here](http://alyssafrazee.com/2014/01/29/vectorization.html). 
@@ -381,7 +386,7 @@ bench::mark(pbapply::pblapply(1:8,function(i) Sys.sleep(10)))
 # A tibble: 1 x 6
   expression                                          min median `itr/sec`
   <bch:expr>                                        <bch> <bch:>     <dbl>
-1 pbapply::pblapply(1:8, function(i) Sys.sleep(10)) 1.33m  1.33m    0.0125
+1 pbapply::pblapply(1:8, function(i) Sys.sleep(10)) 1.34m  1.34m    0.0124
 # ... with 2 more variables: mem_alloc <bch:byt>, `gc/sec` <dbl>
 ```
 
@@ -424,3 +429,93 @@ parallel::stopCluster(cluster)
 ```
 
 
+Some things to take into considerations:
+==============
+
+objects are not automatically exported to clusters!
+
+
+
+
+```r
+a <- c(1:8)
+f <- function(i) {return(i*2)}
+cluster <- parallel::makeCluster(8)
+doParallel::registerDoParallel(cluster)
+pbapply::pblapply(1:8,function(i) f(a[i]) ,cl = cluster)
+```
+
+```
+Error in checkForRemoteErrors(val): 8 nodes produced errors; first error: could not find function "f"
+```
+
+```r
+parallel::stopCluster(cluster)
+```
+
+Exporting Objects to your clusters
+==================
+
+
+```r
+a <- c(1:8)
+f <- function(i) {return(i*2)}
+cluster <- parallel::makeCluster(8)
+doParallel::registerDoParallel(cluster)
+parallel::clusterExport(cluster,c("a","f"))
+pbapply::pblapply(1:8,function(i) f(a[i]) ,cl = cluster)
+```
+
+```
+[[1]]
+[1] 2
+
+[[2]]
+[1] 4
+
+[[3]]
+[1] 6
+
+[[4]]
+[1] 8
+
+[[5]]
+[1] 10
+
+[[6]]
+[1] 12
+
+[[7]]
+[1] 14
+
+[[8]]
+[1] 16
+```
+
+```r
+parallel::stopCluster(cluster)
+```
+
+This applies to packages as well.. I pass the library to each cluster call like so:
+
+
+```r
+#for example
+parallel::clusterCall(clusters, function() library(tidyverse))
+```
+
+
+Take home messages
+=====================================
+
+What's comfortable for you may not be as intuitive to your collaborators.
+<br/>
+<br/>
+<br/>
+What's comfortable for you _right now_ may not be as intuitive to _future you!_
+
+Make sure to adopt good practices early on, so you can easily work on other people's code and they can easily understand and work on your code.
+
+R is an evolving language - it is good to stay updated.
+
+Programming is a skill - with time and practice we all get better. 
